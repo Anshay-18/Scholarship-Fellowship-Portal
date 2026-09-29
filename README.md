@@ -2,6 +2,11 @@
 ### Smart India Hackathon 2026 Prototype • Ministry of Tribal Affairs, Government of India
 > *"Unified Digital Platform for Applicant Registration, AI-Assisted Document Intelligence, Configurable Eligibility Rules, Scrutiny Workflow, Deficiency Correction, and Direct Benefit Transfer (DBT) Post-Selection Management."*
 
+**🌐 Live Public Demonstration:** [https://martha-neighbor-mai-wrote.trycloudflare.com](https://martha-neighbor-mai-wrote.trycloudflare.com)  
+**📦 GitHub Repository:** [https://github.com/Anshay-18/Scholarship-Fellowship-Portal](https://github.com/Anshay-18/Scholarship-Fellowship-Portal)  
+**🏛️ Ministry:** Ministry of Tribal Affairs, Government of India (MoTA)  
+**🏆 Hackathon:** Smart India Hackathon 2026
+
 ---
 
 ## 📋 Executive Overview & Problem Statement Context
