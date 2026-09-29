@@ -1,0 +1,204 @@
+// Prisma Schema for Khet To Ghar
+// Smart India Hackathon 2026 - Problem Statement 26033
+// Eliminating intermediaries through AI direct marketplace & shared logistics
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  FARMER
+  BUYER
+}
+
+enum QualityGrade {
+  GRADE_A
+  GRADE_B
+  GRADE_C
+  UNGRADED
+}
+
+enum ProductStatus {
+  ACTIVE
+  SOLD_OUT
+  FLAGGED
+  DELISTED
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  BATCHED
+  IN_TRANSIT
+  DELIVERED
+  CANCELLED
+}
+
+enum RouteStatus {
+  OPTIMIZING
+  ASSIGNED
+  IN_PROGRESS
+  COMPLETED
+}
+
+model User {
+  id              String      @id @default(uuid())
+  name            String
+  phone           String      @unique
+  email           String?     @unique
+  passwordHash    String
+  role            Role
+  locationLat     Float?
+  locationLng     Float?
+  address         String?
+  district        String?
+  state           String?
+  fpoName         String?     // For FPO-affiliated farmers
+  trustScore      Float       @default(5.0) // 1.00 to 5.00
+  totalRatings    Int         @default(0)
+  successfulOrders Int        @default(0)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  // Relationships
+  productsListed  Product[]   @relation("FarmerProducts")
+  ordersPlaced    Order[]     @relation("BuyerOrders")
+  ratingsGiven    Rating[]    @relation("BuyerRatings")
+  ratingsReceived Rating[]    @relation("FarmerRatings")
+
+  @@index([role, district])
+  @@map("users")
+}
+
+model Product {
+  id                     String        @id @default(uuid())
+  farmerId               String
+  cropName               String
+  variety                String?
+  description            String?       @db.Text
+  quantityKg             Float
+  availableQuantityKg    Float
+  farmerPricePerKg       Float
+  aiPredictedPricePerKg  Float?
+  mandiBenchmarkPricePerKg Float?
+  claimedGrade           QualityGrade  @default(UNGRADED)
+  aiAssessedGrade        QualityGrade?
+  aiConfidenceScore      Float?        // Percentage (e.g. 94.5)
+  isFlaggedMismatch      Boolean       @default(false)
+  flagReason             String?
+  images                 Json          // Array of image URLs & AI inspection crops
+  harvestDate            DateTime?
+  status                 ProductStatus @default(ACTIVE)
+  createdAt              DateTime      @default(now())
+  updatedAt              DateTime      @updatedAt
+
+  // Relationships
+  farmer                 User          @relation("FarmerProducts", fields: [farmerId], references: [id], onDelete: Cascade)
+  orderItems             OrderItem[]
+
+  @@index([cropName, status])
+  @@index([farmerId])
+  @@map("products")
+}
+
+model Order {
+  id              String      @id @default(uuid())
+  buyerId         String
+  totalAmount     Float
+  status          OrderStatus @default(PENDING)
+  deliveryAddress String
+  deliveryLat     Float?
+  deliveryLng     Float?
+  deliveryNotes   String?
+  batchRouteId    String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  // Relationships
+  buyer           User        @relation("BuyerOrders", fields: [buyerId], references: [id], onDelete: Restrict)
+  batchRoute      BatchRoute? @relation(fields: [batchRouteId], references: [id], onDelete: SetNull)
+  items           OrderItem[]
+  rating          Rating?
+
+  @@index([buyerId, status])
+  @@index([batchRouteId])
+  @@map("orders")
+}
+
+model OrderItem {
+  id          String   @id @default(uuid())
+  orderId     String
+  productId   String
+  quantityKg  Float
+  pricePerKg  Float
+  subtotal    Float
+  createdAt   DateTime @default(now())
+
+  // Relationships
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([orderId])
+  @@index([productId])
+  @@map("order_items")
+}
+
+model BatchRoute {
+  id                  String      @id @default(uuid())
+  vehicleCapacityKg   Float
+  totalLoadKg         Float       @default(0.0)
+  status              RouteStatus @default(OPTIMIZING)
+  waypoints           Json        // Ordered list of farm pickups and buyer dropoffs optimized by OR-Tools
+  totalDistanceKm     Float?
+  estimatedTravelMins Float?
+  carbonSavedKg       Float?      // Sustainability impact
+  totalSavingsPercent Float?      // Shared-logistics freight cost reduction
+  assignedDriverPhone String?
+  assignedDriverName  String?
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+
+  // Relationships
+  orders              Order[]
+
+  @@map("batch_routes")
+}
+
+model Rating {
+  id                 String   @id @default(uuid())
+  orderId            String   @unique
+  buyerId            String
+  farmerId           String
+  stars              Int      // 1 to 5
+  gradeAccuracyMatch Boolean  // Did produce match AI grade assessment?
+  feedback           String?  @db.Text
+  createdAt          DateTime @default(now())
+
+  // Relationships
+  order              Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  buyer              User     @relation("BuyerRatings", fields: [buyerId], references: [id], onDelete: Cascade)
+  farmer             User     @relation("FarmerRatings", fields: [farmerId], references: [id], onDelete: Cascade)
+
+  @@index([farmerId])
+  @@map("ratings")
+}
+
+model MarketPriceBenchmark {
+  id               String   @id @default(uuid())
+  cropName         String
+  district         String
+  state            String
+  modalPricePerKg  Float    // Prevailing Mandi modal price
+  minPricePerKg    Float
+  maxPricePerKg    Float
+  recordedDate     DateTime @default(now())
+
+  @@unique([cropName, district, recordedDate])
+  @@index([cropName, district])
+  @@map("market_price_benchmarks")
+}
